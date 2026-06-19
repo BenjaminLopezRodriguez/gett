@@ -9,16 +9,19 @@ import {
   type ExaminationOutput,
   type IntakeOutput,
 } from "@/server/agents/schemas";
-import { buildAgentTools } from "@/server/agents/tools";
 import { requireCaseMember } from "@/server/auth/case-access";
 import { db } from "@/server/db";
 import { logCaseEvent } from "@/server/services/cases";
+
+const MODEL = "claude-sonnet-4-20250514";
+const MAX_SUMMARY_DOCS = 10;
+const MAX_CHARS_PER_DOC = 2000;
 
 function getModel() {
   if (!env.ANTHROPIC_API_KEY) return null;
   return new ChatAnthropic({
     apiKey: env.ANTHROPIC_API_KEY,
-    model: "claude-sonnet-4-20250514",
+    model: MODEL,
     temperature: 0,
   });
 }
@@ -45,14 +48,22 @@ export async function runIntakeAgent(
   }
 
   const structured = model.withStructuredOutput(intakeOutputSchema);
-  const tools = buildAgentTools(userId);
 
-  const result = await structured.invoke([
-    new SystemMessage(
-      `You are a medical leave compliance intake agent for gett. Be precise, cite what information is missing, and never invent medical facts. Available tools: ${tools.map((t) => t.name).join(", ")}.`,
-    ),
-    new HumanMessage(messages.join("\n\n")),
-  ]);
+  let result: IntakeOutput;
+  try {
+    result = await structured.invoke([
+      new SystemMessage(
+        "You are a medical leave compliance intake agent for gett. Be precise, cite what information is missing, and never invent medical facts.",
+      ),
+      new HumanMessage(messages.join("\n\n")),
+    ]);
+  } catch (err) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "AI service unavailable during intake",
+      cause: err,
+    });
+  }
 
   if (caseId) {
     await logCaseEvent(caseId, userId, "agent.intake.completed", {
@@ -73,7 +84,7 @@ export async function runSummaryAgent(
   const caseRow = await db.query.cases.findFirst({
     where: (cases, { eq }) => eq(cases.id, caseId),
   });
-  const docs = await db.query.documents.findMany({
+  const allDocs = await db.query.documents.findMany({
     where: (documents, { eq }) => eq(documents.caseId, caseId),
   });
 
@@ -87,21 +98,37 @@ export async function runSummaryAgent(
     return { summary };
   }
 
-  const response = await model.invoke([
-    new SystemMessage(
-      "Summarize this medical leave case for a compliance reviewer. Note gaps and verifiability concerns.",
-    ),
-    new HumanMessage(
-      JSON.stringify({
-        case: caseRow,
-        documents: docs.map((d) => ({
-          filename: d.filename,
-          sha256: d.sha256,
-          excerpt: d.extractedText?.slice(0, 2000),
-        })),
-      }),
-    ),
-  ]);
+  const docs = allDocs.slice(0, MAX_SUMMARY_DOCS);
+  const truncatedNote =
+    allDocs.length > MAX_SUMMARY_DOCS
+      ? ` (${allDocs.length - MAX_SUMMARY_DOCS} additional documents omitted)`
+      : "";
+
+  let response: Awaited<ReturnType<typeof model.invoke>>;
+  try {
+    response = await model.invoke([
+      new SystemMessage(
+        "Summarize this medical leave case for a compliance reviewer. Note gaps and verifiability concerns.",
+      ),
+      new HumanMessage(
+        JSON.stringify({
+          case: caseRow,
+          documents: docs.map((d) => ({
+            filename: d.filename,
+            sha256: d.sha256,
+            excerpt: d.extractedText?.slice(0, MAX_CHARS_PER_DOC),
+          })),
+          note: truncatedNote || undefined,
+        }),
+      ),
+    ]);
+  } catch (err) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "AI service unavailable during summary",
+      cause: err,
+    });
+  }
 
   const summary =
     typeof response.content === "string"
@@ -110,6 +137,7 @@ export async function runSummaryAgent(
 
   await logCaseEvent(caseId, userId, "agent.summary.completed", {
     summaryLength: summary.length,
+    docCount: docs.length,
   });
 
   return { summary };
@@ -151,18 +179,28 @@ export async function runExamineDocumentAgent(
   }
 
   const structured = model.withStructuredOutput(examinationOutputSchema);
-  const result = await structured.invoke([
-    new SystemMessage(
-      "Examine this medical leave document for compliance issues. Include citation placeholders referencing document sections when possible.",
-    ),
-    new HumanMessage(
-      JSON.stringify({
-        filename: doc.filename,
-        sha256: doc.sha256,
-        text: doc.extractedText,
-      }),
-    ),
-  ]);
+
+  let result: ExaminationOutput;
+  try {
+    result = await structured.invoke([
+      new SystemMessage(
+        "Examine this medical leave document for compliance issues. Include citation placeholders referencing document sections when possible.",
+      ),
+      new HumanMessage(
+        JSON.stringify({
+          filename: doc.filename,
+          sha256: doc.sha256,
+          text: doc.extractedText,
+        }),
+      ),
+    ]);
+  } catch (err) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "AI service unavailable during document examination",
+      cause: err,
+    });
+  }
 
   await logCaseEvent(caseId, userId, "agent.examination.completed", {
     documentId,

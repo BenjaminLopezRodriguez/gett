@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+export const agentTypeSchema = z.enum([
+  "intake",
+  "summary",
+  "document_examination",
+]);
+
+export type AgentType = z.infer<typeof agentTypeSchema>;
+
 export const intakeOutputSchema = z.object({
   summary: z.string(),
   leaveType: z.enum(["fmla", "ada", "state", "disability", "unknown"]),

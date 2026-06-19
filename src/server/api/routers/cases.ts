@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { runAgent } from "@/server/agents/orchestrator";
-import { agentTypeSchema } from "@/server/agents/prompts";
+import { agentTypeSchema } from "@/server/agents/schemas";
 import {
   createCase,
   getCaseEvents,

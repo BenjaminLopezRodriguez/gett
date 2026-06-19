@@ -1,13 +1,11 @@
 import "server-only";
 
-import type { AgentType } from "@/server/agents/prompts";
+import type { AgentType } from "@/server/agents/schemas";
 import {
   runExamineDocumentAgent,
   runIntakeAgent,
   runSummaryAgent,
 } from "@/server/agents/runner";
-import { requireCaseMember } from "@/server/auth/case-access";
-import { db } from "@/server/db";
 
 export type AgentRunResult = {
   agentType: AgentType;
@@ -22,10 +20,6 @@ export async function runAgent(
   input: string,
   documentId?: string,
 ): Promise<AgentRunResult> {
-  if (caseId) {
-    await requireCaseMember(db, userId, caseId, "member");
-  }
-
   switch (agentType) {
     case "intake": {
       const result = await runIntakeAgent(userId, [input], caseId ?? undefined);
