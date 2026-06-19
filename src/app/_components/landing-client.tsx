@@ -793,6 +793,10 @@ export function LandingClient({ authState }: { authState: AuthState }) {
           from { opacity: 0; transform: translate(-50%, -47%) scale(0.96); }
           to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         }
+        @keyframes gettSheetIn {
+          from { opacity: 0; transform: translateY(100%); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
 
         .gett-close-btn {
           width: 34px; height: 34px;
@@ -862,7 +866,25 @@ export function LandingClient({ authState }: { authState: AuthState }) {
           .gett-compose-send { text-align: center; }
         }
 
-        @media (max-width: 480px) {
+        @media (max-width: 640px) {
+          .gett-dialog {
+            top: auto; bottom: 0; left: 0; right: 0;
+            transform: none;
+            width: 100%;
+            border-radius: 20px 20px 0 0;
+            padding: 12px 20px 36px;
+            max-height: 85svh;
+            overflow-y: auto;
+            animation: gettSheetIn 0.3s cubic-bezier(0.16,1,0.3,1);
+          }
+          .gett-dialog::before {
+            content: '';
+            display: block;
+            width: 36px; height: 4px;
+            border-radius: 99px;
+            background: #D8DCF0;
+            margin: 0 auto 20px;
+          }
           .gett-options-grid { grid-template-columns: 1fr; }
         }
       `}</style>
