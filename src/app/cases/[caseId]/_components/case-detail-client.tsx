@@ -5,10 +5,13 @@ import { useState } from "react";
 
 import type { Case } from "@/server/db/schema";
 import { api } from "@/trpc/react";
+import { CaseCommsPanel } from "./case-comms-panel";
 
 type AgentKind = "intake" | "summary" | "examination";
+type Tab = "agent" | "audit" | "comms";
 
 export function CaseDetailClient({ caseRecord }: { caseRecord: Case }) {
+  const [activeTab, setActiveTab] = useState<Tab>("agent");
   const [input, setInput] = useState("");
   const [agentKind, setAgentKind] = useState<AgentKind>("summary");
   const [agentOutput, setAgentOutput] = useState<string | null>(null);
@@ -27,10 +30,7 @@ export function CaseDetailClient({ caseRecord }: { caseRecord: Case }) {
   const runSelectedAgent = () => {
     if (!input.trim()) return;
     if (agentKind === "intake") {
-      intakeAgent.mutate({
-        caseId: caseRecord.id,
-        messages: [input.trim()],
-      });
+      intakeAgent.mutate({ caseId: caseRecord.id, messages: [input.trim()] });
     } else if (agentKind === "summary") {
       summaryAgent.mutate({ caseId: caseRecord.id });
     } else {
@@ -40,14 +40,26 @@ export function CaseDetailClient({ caseRecord }: { caseRecord: Case }) {
 
   const isPending = intakeAgent.isPending || summaryAgent.isPending;
 
+  const TABS: { id: Tab; label: string }[] = [
+    { id: "agent", label: "Agent" },
+    { id: "audit", label: "Audit" },
+    { id: "comms", label: "Comms" },
+  ];
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
+          <Link
+            href="/dashboard"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
             ← Back to dashboard
           </Link>
-          <Link href="/" className="font-[family-name:var(--font-heading)] text-xl font-semibold">
+          <Link
+            href="/"
+            className="font-[family-name:var(--font-heading)] text-xl font-semibold"
+          >
             gett
           </Link>
         </div>
@@ -55,7 +67,9 @@ export function CaseDetailClient({ caseRecord }: { caseRecord: Case }) {
 
       <main className="mx-auto max-w-5xl px-6 py-10">
         <div className="mb-8">
-          <p className="font-mono text-sm text-muted-foreground">{caseRecord.caseHash}</p>
+          <p className="font-mono text-sm text-muted-foreground">
+            {caseRecord.caseHash}
+          </p>
           <h1 className="font-[family-name:var(--font-heading)] mt-1 text-3xl font-semibold tracking-tight">
             {caseRecord.title}
           </h1>
@@ -64,82 +78,117 @@ export function CaseDetailClient({ caseRecord }: { caseRecord: Case }) {
           </p>
         </div>
 
-        <section className="mb-10 rounded-lg border border-border p-6">
-          <h2 className="font-[family-name:var(--font-heading)] mb-4 text-lg font-semibold">
-            Run agent
-          </h2>
-          <div className="mb-3 flex gap-2">
-            {(
-              [
-                ["intake", "Intake"],
-                ["summary", "Summary"],
-                ["examination", "Document exam"],
-              ] as const
-            ).map(([type, label]) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setAgentKind(type)}
-                className={`rounded-md px-3 py-1.5 text-sm ${
-                  agentKind === type
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={
-              agentKind === "summary"
-                ? "Summary uses case data — optional notes…"
-                : "Describe what you need the agent to do…"
-            }
-            rows={4}
-            className="mb-3 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
-          <button
-            type="button"
-            disabled={(agentKind !== "summary" && !input.trim()) || isPending}
-            onClick={runSelectedAgent}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-          >
-            {isPending ? "Running…" : "Run agent"}
-          </button>
-          {agentOutput && (
-            <pre className="mt-4 whitespace-pre-wrap rounded-md bg-muted p-4 text-sm">
-              {agentOutput}
-            </pre>
-          )}
-        </section>
+        {/* Tab bar */}
+        <div className="mb-6 flex gap-2">
+          {TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id)}
+              className={`rounded-md px-3 py-1.5 text-sm ${
+                activeTab === id
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-        <section>
-          <h2 className="font-[family-name:var(--font-heading)] mb-4 text-lg font-semibold">
-            Audit trail
-          </h2>
-          {events && events.length > 0 ? (
-            <ul className="space-y-2">
-              {events.map((event: { id: string; eventType: string; createdAt: Date }) => (
-                <li
-                  key={event.id}
-                  className="rounded-md border border-border px-4 py-3 text-sm"
+        {/* Agent tab */}
+        {activeTab === "agent" && (
+          <section className="rounded-lg border border-border p-6">
+            <h2 className="font-[family-name:var(--font-heading)] mb-4 text-lg font-semibold">
+              Run agent
+            </h2>
+            <div className="mb-3 flex gap-2">
+              {(
+                [
+                  ["intake", "Intake"],
+                  ["summary", "Summary"],
+                  ["examination", "Document exam"],
+                ] as const
+              ).map(([type, label]) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setAgentKind(type)}
+                  className={`rounded-md px-3 py-1.5 text-sm ${
+                    agentKind === type
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground"
+                  }`}
                 >
-                  <div className="flex justify-between gap-4">
-                    <span className="font-medium">{event.eventType}</span>
-                    <time className="text-muted-foreground">
-                      {new Date(event.createdAt).toLocaleString()}
-                    </time>
-                  </div>
-                </li>
+                  {label}
+                </button>
               ))}
-            </ul>
-          ) : (
-            <p className="text-muted-foreground">No events recorded yet.</p>
-          )}
-        </section>
+            </div>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={
+                agentKind === "summary"
+                  ? "Summary uses case data — optional notes…"
+                  : "Describe what you need the agent to do…"
+              }
+              rows={4}
+              className="mb-3 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              disabled={(agentKind !== "summary" && !input.trim()) || isPending}
+              onClick={runSelectedAgent}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+            >
+              {isPending ? "Running…" : "Run agent"}
+            </button>
+            {agentOutput && (
+              <pre className="mt-4 whitespace-pre-wrap rounded-md bg-muted p-4 text-sm">
+                {agentOutput}
+              </pre>
+            )}
+          </section>
+        )}
+
+        {/* Audit tab */}
+        {activeTab === "audit" && (
+          <section>
+            <h2 className="font-[family-name:var(--font-heading)] mb-4 text-lg font-semibold">
+              Audit trail
+            </h2>
+            {events && events.length > 0 ? (
+              <ul className="space-y-2">
+                {events.map(
+                  (event: {
+                    id: string;
+                    eventType: string;
+                    createdAt: Date;
+                  }) => (
+                    <li
+                      key={event.id}
+                      className="rounded-md border border-border px-4 py-3 text-sm"
+                    >
+                      <div className="flex justify-between gap-4">
+                        <span className="font-medium">{event.eventType}</span>
+                        <time className="text-muted-foreground">
+                          {new Date(event.createdAt).toLocaleString()}
+                        </time>
+                      </div>
+                    </li>
+                  ),
+                )}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">No events recorded yet.</p>
+            )}
+          </section>
+        )}
+
+        {/* Comms tab */}
+        {activeTab === "comms" && (
+          <CaseCommsPanel caseId={caseRecord.id} />
+        )}
       </main>
     </div>
   );
