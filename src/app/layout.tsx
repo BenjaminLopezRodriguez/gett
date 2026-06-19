@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   title: "gett — Medical paperwork, handled.",
   description:
     "Benefits, medical leave, accommodations, and compliance — guided in one place.",
-  icons: [{ rel: "icon", url: "/favicon.ico" }],
+  // Icon served from src/app/icon.tsx (was /favicon.ico — missing file caused prod 404)
 };
 
 export default function RootLayout({

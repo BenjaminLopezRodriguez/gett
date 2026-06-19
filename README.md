@@ -27,3 +27,9 @@ You can check out the [create-t3-app GitHub repository](https://github.com/t3-os
 ## How do I deploy this?
 
 Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+
+### Production 404 notes (Kinde + Vercel)
+
+- **Favicon**: The app icon is generated at `src/app/icon.tsx`. Do not reference `/favicon.ico` unless you add `public/favicon.ico` — a missing favicon shows as a 404 on every page load in the browser network tab.
+- **Kinde callback**: Must be `https://<your-domain>/api/auth/kinde_callback` (not `/api/auth/callback`). Login links use `/api/auth/login`; logout uses `/api/auth/logout`.
+- **Env vars on Vercel**: Set `KINDE_SITE_URL`, `KINDE_POST_LOGIN_REDIRECT_URL`, and `KINDE_POST_LOGOUT_REDIRECT_URL` to your production origin (see `.env.example`).
