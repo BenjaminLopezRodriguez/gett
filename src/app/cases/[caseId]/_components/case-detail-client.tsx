@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { env } from "@/env";
 import type { Case } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { CaseCommsPanel } from "./case-comms-panel";
@@ -107,7 +108,9 @@ export function CaseDetailClient({ caseRecord }: { caseRecord: Case }) {
                 [
                   ["intake", "Intake"],
                   ["summary", "Summary"],
-                  ["examination", "Document exam"],
+                  ...(env.NEXT_PUBLIC_ENABLE_EXAMINATION_AGENT
+                    ? [["examination", "Document exam"] as const]
+                    : []),
                 ] as const
               ).map(([type, label]) => (
                 <button

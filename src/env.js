@@ -55,7 +55,27 @@ export const env = createEnv({
       .default("false"),
   },
 
-  client: {},
+  client: {
+    // Persona flags — default off; enable per-persona as each is production-ready.
+    // lawgroup is always on (the wedge). All others default to false.
+    NEXT_PUBLIC_ENABLE_EMPLOYEE_PERSONA: z
+      .string()
+      .transform((v) => v === "true" || v === "1")
+      .default("false"),
+    NEXT_PUBLIC_ENABLE_EMPLOYER_PERSONA: z
+      .string()
+      .transform((v) => v === "true" || v === "1")
+      .default("false"),
+    NEXT_PUBLIC_ENABLE_INSURER_PERSONA: z
+      .string()
+      .transform((v) => v === "true" || v === "1")
+      .default("false"),
+    // Examination agent is a stub — gates the "Document exam" button in case detail.
+    NEXT_PUBLIC_ENABLE_EXAMINATION_AGENT: z
+      .string()
+      .transform((v) => v === "true" || v === "1")
+      .default("false"),
+  },
 
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
@@ -92,6 +112,11 @@ export const env = createEnv({
     SITE_URL: process.env.SITE_URL,
     ALLOW_PHI_PROCESSING: process.env.ALLOW_PHI_PROCESSING,
     ALLOW_AI_PROCESSING: process.env.ALLOW_AI_PROCESSING,
+
+    NEXT_PUBLIC_ENABLE_EMPLOYEE_PERSONA: process.env.NEXT_PUBLIC_ENABLE_EMPLOYEE_PERSONA,
+    NEXT_PUBLIC_ENABLE_EMPLOYER_PERSONA: process.env.NEXT_PUBLIC_ENABLE_EMPLOYER_PERSONA,
+    NEXT_PUBLIC_ENABLE_INSURER_PERSONA: process.env.NEXT_PUBLIC_ENABLE_INSURER_PERSONA,
+    NEXT_PUBLIC_ENABLE_EXAMINATION_AGENT: process.env.NEXT_PUBLIC_ENABLE_EXAMINATION_AGENT,
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
   emptyStringAsUndefined: true,

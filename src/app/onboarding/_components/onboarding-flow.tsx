@@ -12,6 +12,7 @@ import {
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { env } from "@/env";
 import { VERIFICATION_CONFIG } from "@/lib/verification-config";
 import type { UserPersona } from "@/server/db/schema";
 import { getDashboardPath } from "@/server/lib/persona";
@@ -207,7 +208,12 @@ export function OnboardingFlow({
                 Choose your role to personalize your gett experience.
               </p>
               <div className="gett-onb-grid">
-                {PERSONA_OPTIONS.map(({ persona: p, label, desc, Icon }) => (
+                {PERSONA_OPTIONS.filter(({ persona: p }) => {
+                  if (p === "employee") return env.NEXT_PUBLIC_ENABLE_EMPLOYEE_PERSONA;
+                  if (p === "employer") return env.NEXT_PUBLIC_ENABLE_EMPLOYER_PERSONA;
+                  if (p === "insurer") return env.NEXT_PUBLIC_ENABLE_INSURER_PERSONA;
+                  return true; // lawgroup always shown
+                }).map(({ persona: p, label, desc, Icon }) => (
                   <button
                     key={p}
                     type="button"
