@@ -20,10 +20,13 @@ import {
   User,
   Buildings,
   Scales,
+  Stethoscope,
+  ArrowSquareUp,
+  BellRinging,
   type IconProps,
 } from "@phosphor-icons/react";
 
-type Seg = "employees" | "employers" | "lawgroups" | "insurers";
+type Seg = "employees" | "employers" | "lawgroups" | "insurers" | "clinicians";
 type AnyIcon = React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
 
 interface Card { Icon: AnyIcon; title: string; sub: string; }
@@ -131,13 +134,37 @@ const CONTENT: Record<Seg, SegContent> = {
       { Icon: ChartBar, title: "Compliance reporting", sub: "Audit trails and regulatory documentation." },
     ],
   },
+  clinicians: {
+    navLabel: "for clinicians",
+    headline: "Complete forms,",
+    headlineBlue: "not portals.",
+    tagline: "Respond to requests in seconds.",
+    description:
+      "When a law firm or insurer sends a documentation request, gett handles the handoff. Get a secure link by text, upload your completed form, and you're done — no logins, no fax, no follow-up calls.",
+    placeholder: "e.g. I received a PR-2 request — how do I submit it?",
+    visual: {
+      label: "PR-2 Request · Case #8821",
+      status: "Ready to submit",
+      lines: [
+        "Secure upload link sent via SMS",
+        "Form received · 2 pages verified",
+        "Forwarded to requesting party",
+      ],
+    },
+    cards: [
+      { Icon: ClipboardText, title: "Form request handling", sub: "DWC, CFRA, FMLA — we handle the routing." },
+      { Icon: BellRinging, title: "No missed deadlines", sub: "Get reminders and confirmation on every submission." },
+      { Icon: ArrowSquareUp, title: "No portal required", sub: "Upload securely from any device via text link." },
+    ],
+  },
 };
 
 const DIALOG_OPTIONS: { seg: Seg; label: string; desc: string; Icon: AnyIcon }[] = [
-  { seg: "employees",  label: "I'm an employee",     desc: "Help me with benefits, leave, or paperwork",    Icon: User      },
-  { seg: "employers",  label: "I'm an employer / HR", desc: "Improve compliance and reduce admin overhead",  Icon: Buildings },
-  { seg: "lawgroups",  label: "I'm with a law group", desc: "Grow my disability or workers' comp practice",  Icon: Scales    },
-  { seg: "insurers",   label: "I'm an insurer",       desc: "Streamline claims and reduce friction",         Icon: Shield    },
+  { seg: "employees",  label: "I'm an employee",        desc: "Help me with benefits, leave, or paperwork",    Icon: User        },
+  { seg: "employers",  label: "I'm an employer / HR",   desc: "Improve compliance and reduce admin overhead",  Icon: Buildings   },
+  { seg: "lawgroups",  label: "I'm with a law group",   desc: "Grow my disability or workers' comp practice",  Icon: Scales      },
+  { seg: "insurers",   label: "I'm an insurer",         desc: "Streamline claims and reduce friction",         Icon: Shield      },
+  { seg: "clinicians", label: "I'm a clinician / HCP",  desc: "Submit forms and documentation securely",       Icon: Stethoscope },
 ];
 
 type AuthState =
