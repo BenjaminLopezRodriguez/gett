@@ -98,6 +98,76 @@ export const commsRouter = createTRPCRouter({
       return { previewBody, smsUrl, handoffUrl, expiresAt };
     }),
 
+  sendSms: caseProcedure("member")
+    .input(
+      z.object({
+        body: z.string().min(1).max(1600),
+        templateId: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (
+        !env.TWILIO_ACCOUNT_SID ||
+        !env.TWILIO_AUTH_TOKEN ||
+        !env.TWILIO_PHONE_NUMBER
+      ) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Twilio is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER.",
+        });
+      }
+
+      const clientContact = await ctx.db.query.caseContacts.findFirst({
+        where: (t, { and, eq: eqFn }) =>
+          and(eqFn(t.caseId, ctx.caseId), eqFn(t.role, "client")),
+        orderBy: (t, { desc }) => [desc(t.createdAt)],
+      });
+      if (!clientContact) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No client contact found for this case.",
+        });
+      }
+
+      const auth = Buffer.from(
+        `${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`,
+      ).toString("base64");
+      const res = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: `Basic ${auth}`,
+          },
+          body: new URLSearchParams({
+            To: clientContact.phoneE164,
+            From: env.TWILIO_PHONE_NUMBER,
+            Body: input.body,
+          }).toString(),
+        },
+      );
+
+      if (!res.ok) {
+        const detail = await res.text();
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Twilio error: ${detail}`,
+        });
+      }
+
+      await ctx.db.insert(caseMessages).values({
+        caseId: ctx.caseId,
+        direction: "out",
+        templateId: input.templateId,
+        channel: "sms",
+        actorId: ctx.user.id,
+      });
+      await logCaseEvent(ctx.caseId, ctx.user.id, "comms.sms_sent", {
+        templateId: input.templateId,
+      });
+    }),
+
   logOutboundComms: caseProcedure("member")
     .input(
       z.object({

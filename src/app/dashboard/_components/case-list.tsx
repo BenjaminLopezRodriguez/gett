@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { api } from "@/trpc/react";
@@ -12,13 +13,15 @@ export function CaseList({
   emptyMessage?: string;
   showCreate?: boolean;
 }) {
+  const router = useRouter();
   const utils = api.useUtils();
   const { data: cases, isLoading } = api.case.list.useQuery();
   const [title, setTitle] = useState("");
   const createCase = api.case.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (newCase) => {
       setTitle("");
       await utils.case.list.invalidate();
+      router.push(`/cases/${newCase.id}?next=comms`);
     },
   });
 

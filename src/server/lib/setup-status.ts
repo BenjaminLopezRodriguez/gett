@@ -6,6 +6,7 @@ import type { UserPersona } from "@/server/db/schema";
 export type IntegrationKey =
   | "kinde"
   | "anthropic"
+  | "twilio"
   | "pdfAi"
   | "r2"
   | "slack";
@@ -22,6 +23,11 @@ export function getIntegrationStatus(): IntegrationStatus {
     env.KINDE_ISSUER_URL
   );
   const anthropicConfigured = !!env.ANTHROPIC_API_KEY;
+  const twilioConfigured = !!(
+    env.TWILIO_ACCOUNT_SID &&
+    env.TWILIO_AUTH_TOKEN &&
+    env.TWILIO_PHONE_NUMBER
+  );
   const pdfAiConfigured = !!env.PDF_AI_API_KEY;
   const r2Configured = !!(
     env.R2_ACCOUNT_ID &&
@@ -44,6 +50,14 @@ export function getIntegrationStatus(): IntegrationStatus {
     anthropic: {
       configured: anthropicConfigured,
       missingVars: !anthropicConfigured ? ["ANTHROPIC_API_KEY"] : [],
+    },
+    twilio: {
+      configured: twilioConfigured,
+      missingVars: [
+        !env.TWILIO_ACCOUNT_SID && "TWILIO_ACCOUNT_SID",
+        !env.TWILIO_AUTH_TOKEN && "TWILIO_AUTH_TOKEN",
+        !env.TWILIO_PHONE_NUMBER && "TWILIO_PHONE_NUMBER",
+      ].filter(Boolean) as string[],
     },
     pdfAi: {
       configured: pdfAiConfigured,

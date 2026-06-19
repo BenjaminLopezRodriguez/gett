@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { env } from "@/env";
 import type { Case } from "@/server/db/schema";
@@ -12,14 +13,16 @@ type AgentKind = "intake" | "summary" | "examination";
 type Tab = "agent" | "audit" | "comms";
 
 export function CaseDetailClient({ caseRecord }: { caseRecord: Case }) {
-  const [activeTab, setActiveTab] = useState<Tab>("agent");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<Tab>(
+    searchParams.get("next") === "comms" ? "comms" : "agent",
+  );
   const [input, setInput] = useState("");
   const [agentKind, setAgentKind] = useState<AgentKind>("summary");
   const [agentOutput, setAgentOutput] = useState<string | null>(null);
 
-  const { data: events } = api.case.auditLog.useQuery({
-    caseId: caseRecord.id,
-  });
+  const { data: events } = api.case.auditLog.useQuery({ caseId: caseRecord.id });
+  const { data: setup } = api.user.getSetupStatus.useQuery();
 
   const intakeAgent = api.agent.intake.useMutation({
     onSuccess: (result) => setAgentOutput(JSON.stringify(result, null, 2)),
@@ -103,6 +106,12 @@ export function CaseDetailClient({ caseRecord }: { caseRecord: Case }) {
             <h2 className="font-[family-name:var(--font-heading)] mb-4 text-lg font-semibold">
               Run agent
             </h2>
+            {setup && !setup.anthropic.configured && (
+              <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <strong>AI not configured.</strong> Agent responses are stubs.{" "}
+                Set <code className="rounded bg-amber-100 px-1">ANTHROPIC_API_KEY</code> in your environment to enable live processing.
+              </div>
+            )}
             <div className="mb-3 flex gap-2">
               {(
                 [

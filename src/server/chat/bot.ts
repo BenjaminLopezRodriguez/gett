@@ -4,10 +4,8 @@ export function isChatEnabled(): boolean {
   );
 }
 
-/** Placeholder — wire Chat SDK webhook when Slack credentials are configured. */
+/** No-op until Slack credentials are configured and the handler is wired. */
 export async function handleChatWebhook(_payload: unknown): Promise<void> {
-  if (!isChatEnabled()) {
-    throw new Error("Chat integration not configured");
-  }
-  throw new Error("Chat webhook handler not implemented");
+  if (!isChatEnabled()) return;
+  // TODO: wire Slack SDK handler when SLACK_BOT_TOKEN + SLACK_SIGNING_SECRET are set
 }

@@ -14,6 +14,7 @@ import {
 import { buildTelUrl } from "@/lib/comms/sms-url";
 import type { TemplateId } from "@/lib/comms/templates";
 import { api } from "@/trpc/react";
+import { PaperPlaneTilt, WarningCircle } from "@phosphor-icons/react";
 
 interface CaseCommsPanelProps {
   caseId: string;
@@ -89,12 +90,25 @@ export function CaseCommsPanel({ caseId }: CaseCommsPanelProps) {
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [logged, setLogged] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  const { data: setup } = api.user.getSetupStatus.useQuery();
+  const twilioReady = setup?.twilio?.configured ?? false;
 
   const buildTemplate = api.comms.buildMessageTemplate.useMutation({
     onSuccess: (data) => {
       setPreview(data as PreviewResult);
       setLogged(false);
+      setSendError(null);
     },
+  });
+
+  const sendSms = api.comms.sendSms.useMutation({
+    onSuccess: () => {
+      setLogged(true);
+      setSendError(null);
+    },
+    onError: (err) => setSendError(err.message),
   });
 
   const logSent = api.comms.logOutboundComms.useMutation({
@@ -295,14 +309,38 @@ export function CaseCommsPanel({ caseId }: CaseCommsPanelProps) {
 
               {/* Action buttons */}
               <div className="flex flex-wrap gap-2">
-                {isMobile && (
-                  <a
-                    href={preview.smsUrl}
-                    className="flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground"
+                {twilioReady ? (
+                  <button
+                    type="button"
+                    disabled={logged || sendSms.isPending}
+                    onClick={() => sendSms.mutate({ caseId, body: preview.previewBody, templateId })}
+                    className="flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
                   >
-                    <ChatCircleText size={14} weight="bold" />
-                    Text client
-                  </a>
+                    <PaperPlaneTilt size={14} weight="bold" />
+                    {sendSms.isPending ? "Sending…" : logged ? "Sent ✓" : "Send via gett"}
+                  </button>
+                ) : (
+                  <>
+                    {isMobile && (
+                      <a
+                        href={preview.smsUrl}
+                        className="flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground"
+                      >
+                        <ChatCircleText size={14} weight="bold" />
+                        Text client
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      disabled={logged || logSent.isPending}
+                      onClick={() => logSent.mutate({ caseId, templateId, channel: "sms" })}
+                      className="flex items-center gap-1.5 rounded-md border border-border px-3.5 py-2 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    >
+                      {logged ? (
+                        <><CheckCircle size={13} className="text-green-600" />Logged</>
+                      ) : "I sent this manually"}
+                    </button>
+                  </>
                 )}
                 <a
                   href={buildTelUrl(clientContact.phoneE164)}
@@ -323,24 +361,16 @@ export function CaseCommsPanel({ caseId }: CaseCommsPanelProps) {
                   <Copy size={13} />
                   {copied ? "Copied!" : "Copy link"}
                 </button>
-                <button
-                  type="button"
-                  disabled={logged || logSent.isPending}
-                  onClick={() =>
-                    logSent.mutate({ caseId, templateId, channel: "sms" })
-                  }
-                  className="ml-auto flex items-center gap-1.5 rounded-md border border-border px-3.5 py-2 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
-                >
-                  {logged ? (
-                    <>
-                      <CheckCircle size={13} className="text-green-600" />
-                      Logged
-                    </>
-                  ) : (
-                    "I sent this"
-                  )}
-                </button>
               </div>
+              {!twilioReady && (
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <WarningCircle size={12} className="shrink-0" />
+                  Set <code className="rounded bg-muted px-1">TWILIO_ACCOUNT_SID</code>, <code className="rounded bg-muted px-1">TWILIO_AUTH_TOKEN</code>, <code className="rounded bg-muted px-1">TWILIO_PHONE_NUMBER</code> to enable direct send.
+                </p>
+              )}
+              {sendError && (
+                <p className="mt-2 text-xs text-red-600">{sendError}</p>
+              )}
             </div>
           )}
         </section>
