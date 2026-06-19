@@ -1,7 +1,13 @@
 import { db } from "@/server/db";
 import { waitlistEntries } from "@/server/db/schema";
 
-const VALID_SEGMENTS = ["clinicians", "therapists"] as const;
+const VALID_SEGMENTS = [
+  "employees",
+  "employers",
+  "insurers",
+  "clinicians",
+  "therapists",
+] as const;
 type WaitlistSegment = (typeof VALID_SEGMENTS)[number];
 
 function isValidSegment(s: unknown): s is WaitlistSegment {

@@ -240,9 +240,18 @@ export function LandingClient({ authState }: { authState: AuthState }) {
     }
   }
 
+  const NON_WEDGE_SEGS: Seg[] = ["employees", "employers", "insurers"];
+
   function handleGetStarted() {
+    // clinicians + therapists: always waitlist dialog (no product path at all)
     if (isWaitlistSeg(seg)) {
       openWaitlist();
+      return;
+    }
+    // employees, employers, insurers: unauthenticated users go to waitlist page
+    // (onboarding only shows lawgroup right now); logged-in users go to their dashboard
+    if (!authState.isLoggedIn && NON_WEDGE_SEGS.includes(seg)) {
+      router.push(`/waitlist?for=${seg}`);
       return;
     }
     if (!authState.isLoggedIn) {
@@ -257,7 +266,10 @@ export function LandingClient({ authState }: { authState: AuthState }) {
     router.push(authState.dashboardPath ?? "/dashboard");
   }
 
-  const ctaLabel = isWaitlistSeg(seg) ? "Join the waitlist" : "Get started";
+  const ctaLabel =
+    isWaitlistSeg(seg) || (!authState.isLoggedIn && NON_WEDGE_SEGS.includes(seg))
+      ? "Join the waitlist"
+      : "Get started";
 
   return (
     <div dir="ltr" className="gett-page">

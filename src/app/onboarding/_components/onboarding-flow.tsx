@@ -12,6 +12,8 @@ import {
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import Link from "next/link";
+
 import { env } from "@/env";
 import { VERIFICATION_CONFIG } from "@/lib/verification-config";
 import type { UserPersona } from "@/server/db/schema";
@@ -228,6 +230,12 @@ export function OnboardingFlow({
                   </button>
                 ))}
               </div>
+              <p className="gett-onb-waitlist-hint">
+                Not a law group?{" "}
+                <Link href="/waitlist" className="gett-onb-waitlist-link">
+                  Join the waitlist →
+                </Link>
+              </p>
             </>
           )}
 
@@ -695,6 +703,19 @@ export function OnboardingFlow({
           cursor: pointer;
         }
         .gett-onb-skip:disabled { opacity: 0.6; }
+
+        .gett-onb-waitlist-hint {
+          margin: 16px 0 0;
+          text-align: center;
+          font-size: 0.8125rem;
+          color: var(--ink-faint);
+        }
+        .gett-onb-waitlist-link {
+          color: #3040F5;
+          text-decoration: none;
+          font-weight: 500;
+        }
+        .gett-onb-waitlist-link:hover { text-decoration: underline; }
       `}</style>
     </div>
   );
