@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 
-import { env } from "@/env";
 import { getCurrentUser } from "@/server/auth/get-current-user";
 import { getDashboardPath, isUserPersona } from "@/server/lib/persona";
 import { api, HydrateClient } from "@/trpc/server";
@@ -8,13 +7,6 @@ import { EmployeeDashboard } from "../_components/employee-dashboard";
 import { EmployerDashboard } from "../_components/employer-dashboard";
 import { InsurerDashboard } from "../_components/insurer-dashboard";
 import { LawgroupDashboard } from "../_components/lawgroup-dashboard";
-
-const PERSONA_ENABLED: Record<string, boolean> = {
-  employee: env.NEXT_PUBLIC_ENABLE_EMPLOYEE_PERSONA,
-  employer: env.NEXT_PUBLIC_ENABLE_EMPLOYER_PERSONA,
-  lawgroup: true, // always on — the wedge
-  insurer: env.NEXT_PUBLIC_ENABLE_INSURER_PERSONA,
-};
 
 export const dynamic = "force-dynamic";
 
@@ -37,10 +29,8 @@ export default async function PersonaDashboardPage({
     notFound();
   }
 
-  if (!PERSONA_ENABLED[persona]) {
-    notFound();
-  }
-
+  // Always redirect to the user's own persona — flags only gate onboarding options,
+  // not access to an existing account.
   if (user.persona !== persona) {
     redirect(getDashboardPath(user.persona));
   }
