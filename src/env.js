@@ -36,6 +36,17 @@ export const env = createEnv({
     SLACK_BOT_TOKEN: z.string().min(1).optional(),
     SLACK_SIGNING_SECRET: z.string().min(1).optional(),
     CHAT_WEBHOOK_SECRET: z.string().min(1).optional(),
+
+    // Intake / Handoff
+    TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
+    TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
+    TWILIO_PHONE_NUMBER: z.string().min(1).optional(),
+    HANDOFF_TOKEN_TTL_MINUTES: z.coerce.number().default(20),
+    SITE_URL: z.string().url().default("https://gett.md"),
+
+    // Feature flags
+    ALLOW_PHI_PROCESSING: z.coerce.boolean().default(false),
+    ALLOW_AI_PROCESSING: z.coerce.boolean().default(false),
   },
 
   client: {},
@@ -67,6 +78,14 @@ export const env = createEnv({
     SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN,
     SLACK_SIGNING_SECRET: process.env.SLACK_SIGNING_SECRET,
     CHAT_WEBHOOK_SECRET: process.env.CHAT_WEBHOOK_SECRET,
+
+    TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
+    TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
+    TWILIO_PHONE_NUMBER: process.env.TWILIO_PHONE_NUMBER,
+    HANDOFF_TOKEN_TTL_MINUTES: process.env.HANDOFF_TOKEN_TTL_MINUTES,
+    SITE_URL: process.env.SITE_URL,
+    ALLOW_PHI_PROCESSING: process.env.ALLOW_PHI_PROCESSING,
+    ALLOW_AI_PROCESSING: process.env.ALLOW_AI_PROCESSING,
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
   emptyStringAsUndefined: true,
