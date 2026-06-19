@@ -32,6 +32,28 @@ export const verificationStatusEnum = pgEnum("verification_status", [
   "skipped",
 ]);
 
+export const handoffChannelEnum = pgEnum("handoff_channel", [
+  "sms",
+  "web",
+  "voice",
+]);
+
+export const handoffIntentEnum = pgEnum("handoff_intent", [
+  "upload",
+  "intake",
+  "general",
+]);
+
+export const caseContactRoleEnum = pgEnum("case_contact_role", [
+  "client",
+  "lawyer",
+  "adjuster",
+]);
+
+export const messageDirectionEnum = pgEnum("message_direction", ["in", "out"]);
+
+export const messageChannelEnum = pgEnum("message_channel", ["sms", "call"]);
+
 export const users = createTable(
   "user",
   (d) => ({
@@ -147,6 +169,73 @@ export const documents = createTable(
   (t) => [index("document_case_idx").on(t.caseId)],
 );
 
+export const intakeHandoffTokens = createTable(
+  "intake_handoff_token",
+  (d) => ({
+    id: d.uuid().primaryKey().defaultRandom(),
+    tokenHash: d.varchar({ length: 64 }).notNull(),
+    channel: handoffChannelEnum().notNull(),
+    phoneE164: d.varchar({ length: 20 }),
+    intent: handoffIntentEnum().notNull().default("upload"),
+    intentMeta: d.jsonb().$type<Record<string, string>>().default({}),
+    caseId: d.uuid().references(() => cases.id, { onDelete: "set null" }),
+    userId: d.uuid().references(() => users.id, { onDelete: "set null" }),
+    expiresAt: d.timestamp({ withTimezone: true }).notNull(),
+    consumedAt: d.timestamp({ withTimezone: true }),
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  }),
+  (t) => [
+    uniqueIndex("handoff_token_hash_idx").on(t.tokenHash),
+    index("handoff_token_expires_idx").on(t.expiresAt),
+  ],
+);
+
+export const caseContacts = createTable(
+  "case_contact",
+  (d) => ({
+    id: d.uuid().primaryKey().defaultRandom(),
+    caseId: d
+      .uuid()
+      .notNull()
+      .references(() => cases.id, { onDelete: "cascade" }),
+    role: caseContactRoleEnum().notNull(),
+    phoneE164: d.varchar({ length: 20 }).notNull(),
+    displayName: d.varchar({ length: 256 }).notNull(),
+    smsConsentAt: d.timestamp({ withTimezone: true }),
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  }),
+  (t) => [
+    uniqueIndex("case_contact_unique_idx").on(t.caseId, t.phoneE164, t.role),
+    index("case_contact_case_idx").on(t.caseId),
+  ],
+);
+
+export const caseMessages = createTable(
+  "case_message",
+  (d) => ({
+    id: d.uuid().primaryKey().defaultRandom(),
+    caseId: d
+      .uuid()
+      .notNull()
+      .references(() => cases.id, { onDelete: "cascade" }),
+    direction: messageDirectionEnum().notNull(),
+    templateId: d.varchar({ length: 128 }).notNull(),
+    channel: messageChannelEnum().notNull(),
+    actorId: d.uuid().references(() => users.id, { onDelete: "set null" }),
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  }),
+  (t) => [index("case_message_case_idx").on(t.caseId)],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   caseMemberships: many(caseMembers),
   createdCases: many(cases),
@@ -157,6 +246,8 @@ export const casesRelations = relations(cases, ({ one, many }) => ({
   members: many(caseMembers),
   events: many(caseEvents),
   documents: many(documents),
+  contacts: many(caseContacts),
+  messages: many(caseMessages),
 }));
 
 export const caseMembersRelations = relations(caseMembers, ({ one }) => ({
@@ -177,6 +268,32 @@ export const documentsRelations = relations(documents, ({ one }) => ({
   }),
 }));
 
+export const intakeHandoffTokensRelations = relations(
+  intakeHandoffTokens,
+  ({ one }) => ({
+    case: one(cases, {
+      fields: [intakeHandoffTokens.caseId],
+      references: [cases.id],
+    }),
+    user: one(users, {
+      fields: [intakeHandoffTokens.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const caseContactsRelations = relations(caseContacts, ({ one }) => ({
+  case: one(cases, { fields: [caseContacts.caseId], references: [cases.id] }),
+}));
+
+export const caseMessagesRelations = relations(caseMessages, ({ one }) => ({
+  case: one(cases, { fields: [caseMessages.caseId], references: [cases.id] }),
+  actor: one(users, {
+    fields: [caseMessages.actorId],
+    references: [users.id],
+  }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type Case = typeof cases.$inferSelect;
 export type CaseMember = typeof caseMembers.$inferSelect;
@@ -185,3 +302,6 @@ export type CaseStatus = (typeof caseStatusEnum.enumValues)[number];
 export type UserPersona = (typeof userPersonaEnum.enumValues)[number];
 export type VerificationStatus =
   (typeof verificationStatusEnum.enumValues)[number];
+export type IntakeHandoffToken = typeof intakeHandoffTokens.$inferSelect;
+export type CaseContact = typeof caseContacts.$inferSelect;
+export type CaseMessage = typeof caseMessages.$inferSelect;
