@@ -4,6 +4,8 @@
 
 **Goal:** Build handoff token flow, `/start` upload page, Twilio webhook scaffold, and Case Comms tab onto the existing gett Next.js/tRPC/Drizzle stack.
 
+> **Design note:** `verify-gate.tsx`, `upload-scanner.tsx`, and `case-comms-panel.tsx` have already been written with full visual design (judicial-vault dark theme, amber accent, Phosphor icons, SMS bubble preview). Skip the code-writing steps in Tasks 12, 13, and 15 — the files are on disk. TypeScript errors in those files resolve after Tasks 9–11 mount the routers.
+
 **Architecture:** A single-use, short-lived token (sha256-hashed in DB) gates document upload behind Kinde auth. A pre-auth `/start?t=<token>` page shows VerifyGate or UploadScanner depending on session state. Case Comms tab on the case detail page lets lawyers generate templated `sms:` links containing fresh tokens.
 
 **Tech Stack:** Next.js 15 App Router, tRPC 11, Drizzle ORM + Neon Postgres, Kinde auth, Cloudflare R2, Vitest for unit tests.
