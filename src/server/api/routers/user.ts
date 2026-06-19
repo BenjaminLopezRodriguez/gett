@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/api/trpc";
@@ -13,6 +14,7 @@ import {
   getVerificationStatus,
 } from "@/server/lib/setup-status";
 import { createCase } from "@/server/services/cases";
+import { isR2Configured, R2_BUCKETS, uploadToBucket } from "@/server/storage/r2";
 
 const verificationPayloadSchema = z.record(z.unknown());
 
@@ -114,6 +116,49 @@ export const userRouter = createTRPCRouter({
         redirectPath: getDashboardPath(input.persona),
         caseId,
       };
+    }),
+
+  saveEmployerSetup: protectedProcedure
+    .input(
+      z.object({
+        state: z.string().length(2),
+        isUnionized: z.boolean(),
+        unionName: z.string().max(256).optional(),
+        handbookFilename: z.string().max(512).optional(),
+        handbookBase64: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.query.users.findFirst({
+        where: eq(users.id, ctx.user.id),
+      });
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      }
+
+      let handbookStorageKey: string | undefined;
+      if (input.handbookBase64 && input.handbookFilename && isR2Configured()) {
+        const buffer = Buffer.from(input.handbookBase64, "base64");
+        const key = `handbooks/${ctx.user.id}/${randomUUID()}-${input.handbookFilename}`;
+        await uploadToBucket(R2_BUCKETS.CASES, key, buffer, "application/pdf");
+        handbookStorageKey = key;
+      }
+
+      const currentPayload = (existing.verificationPayload ?? {}) as Record<string, unknown>;
+      const updatedPayload: Record<string, unknown> = {
+        ...currentPayload,
+        state: input.state,
+        isUnionized: input.isUnionized,
+      };
+      if (input.isUnionized && input.unionName) updatedPayload.unionName = input.unionName;
+      if (handbookStorageKey) updatedPayload.handbookStorageKey = handbookStorageKey;
+
+      await ctx.db
+        .update(users)
+        .set({ verificationPayload: updatedPayload })
+        .where(eq(users.id, ctx.user.id));
+
+      return { success: true };
     }),
 
   submitVerification: protectedProcedure

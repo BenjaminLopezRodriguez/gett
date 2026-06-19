@@ -5,10 +5,12 @@ import {
   Scales,
   Shield,
   User,
+  UploadSimple,
+  File,
   type IconProps,
 } from "@phosphor-icons/react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 
 import { VERIFICATION_CONFIG } from "@/lib/verification-config";
 import type { UserPersona } from "@/server/db/schema";
@@ -51,6 +53,34 @@ const PERSONA_OPTIONS: {
   },
 ];
 
+const US_STATES = [
+  { code: "AL", name: "Alabama" }, { code: "AK", name: "Alaska" },
+  { code: "AZ", name: "Arizona" }, { code: "AR", name: "Arkansas" },
+  { code: "CA", name: "California" }, { code: "CO", name: "Colorado" },
+  { code: "CT", name: "Connecticut" }, { code: "DE", name: "Delaware" },
+  { code: "FL", name: "Florida" }, { code: "GA", name: "Georgia" },
+  { code: "HI", name: "Hawaii" }, { code: "ID", name: "Idaho" },
+  { code: "IL", name: "Illinois" }, { code: "IN", name: "Indiana" },
+  { code: "IA", name: "Iowa" }, { code: "KS", name: "Kansas" },
+  { code: "KY", name: "Kentucky" }, { code: "LA", name: "Louisiana" },
+  { code: "ME", name: "Maine" }, { code: "MD", name: "Maryland" },
+  { code: "MA", name: "Massachusetts" }, { code: "MI", name: "Michigan" },
+  { code: "MN", name: "Minnesota" }, { code: "MS", name: "Mississippi" },
+  { code: "MO", name: "Missouri" }, { code: "MT", name: "Montana" },
+  { code: "NE", name: "Nebraska" }, { code: "NV", name: "Nevada" },
+  { code: "NH", name: "New Hampshire" }, { code: "NJ", name: "New Jersey" },
+  { code: "NM", name: "New Mexico" }, { code: "NY", name: "New York" },
+  { code: "NC", name: "North Carolina" }, { code: "ND", name: "North Dakota" },
+  { code: "OH", name: "Ohio" }, { code: "OK", name: "Oklahoma" },
+  { code: "OR", name: "Oregon" }, { code: "PA", name: "Pennsylvania" },
+  { code: "RI", name: "Rhode Island" }, { code: "SC", name: "South Carolina" },
+  { code: "SD", name: "South Dakota" }, { code: "TN", name: "Tennessee" },
+  { code: "TX", name: "Texas" }, { code: "UT", name: "Utah" },
+  { code: "VT", name: "Vermont" }, { code: "VA", name: "Virginia" },
+  { code: "WA", name: "Washington" }, { code: "WV", name: "West Virginia" },
+  { code: "WI", name: "Wisconsin" }, { code: "WY", name: "Wyoming" },
+] as const;
+
 type VerificationFields = Record<string, string>;
 
 export function OnboardingFlow({
@@ -60,35 +90,46 @@ export function OnboardingFlow({
   verifyOnly = false,
 }: {
   userEmail: string;
-  initialStep?: 1 | 2;
+  initialStep?: 1 | 2 | 3;
   initialPersona?: UserPersona | null;
   verifyOnly?: boolean;
 }) {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2>(initialStep);
+  const handbookRef = useRef<HTMLInputElement>(null);
+
+  const [step, setStep] = useState<1 | 2 | 3>(initialStep);
   const [persona, setPersona] = useState<UserPersona | null>(initialPersona);
   const [fields, setFields] = useState<VerificationFields>({});
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
+
+  // Step 3 (employer org details) state
+  const [orgState, setOrgState] = useState("");
+  const [isUnionized, setIsUnionized] = useState<boolean | null>(null);
+  const [unionName, setUnionName] = useState("");
+  const [handbookFile, setHandbookFile] = useState<File | null>(null);
 
   const completeOnboarding = api.user.completeOnboarding.useMutation({
     onSuccess: (data) => {
-      router.push(data.redirectPath);
+      if (persona === "employer") {
+        setPendingRedirect(data.redirectPath);
+        setStep(3);
+      } else {
+        router.push(data.redirectPath);
+      }
     },
   });
 
   const submitVerification = api.user.submitVerification.useMutation({
     onSuccess: () => {
-      if (persona) {
-        router.push(getDashboardPath(persona));
-      }
+      if (persona) router.push(getDashboardPath(persona));
     },
   });
 
-  useEffect(() => {
-    if (initialPersona) {
-      setPersona(initialPersona);
-    }
-    setStep(initialStep);
-  }, [initialStep, initialPersona]);
+  const saveEmployerSetup = api.user.saveEmployerSetup.useMutation({
+    onSuccess: () => {
+      if (pendingRedirect) router.push(pendingRedirect);
+    },
+  });
 
   function handlePersonaSelect(p: UserPersona) {
     setPersona(p);
@@ -102,23 +143,50 @@ export function OnboardingFlow({
       submitVerification.mutate({ payload: fields });
       return;
     }
-    completeOnboarding.mutate({
-      persona,
-      verificationPayload: fields,
-    });
+    completeOnboarding.mutate({ persona, verificationPayload: fields });
   }
 
   function handleSkip() {
     if (!persona || verifyOnly) return;
-    completeOnboarding.mutate({
-      persona,
-      skipVerification: true,
+    completeOnboarding.mutate({ persona, skipVerification: true });
+  }
+
+  async function handleOrgSubmit() {
+    if (!orgState || isUnionized === null) return;
+
+    let handbookBase64: string | undefined;
+    let handbookFilename: string | undefined;
+
+    if (handbookFile) {
+      const buf = await handbookFile.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let bin = "";
+      for (const b of bytes) bin += String.fromCharCode(b);
+      handbookBase64 = btoa(bin);
+      handbookFilename = handbookFile.name;
+    }
+
+    saveEmployerSetup.mutate({
+      state: orgState,
+      isUnionized,
+      unionName: isUnionized && unionName ? unionName : undefined,
+      handbookBase64,
+      handbookFilename,
     });
   }
 
+  function handleOrgSkip() {
+    if (pendingRedirect) router.push(pendingRedirect);
+  }
+
   const config = persona ? VERIFICATION_CONFIG[persona] : null;
+  const totalSteps = persona === "employer" ? 3 : 2;
   const isPending =
-    completeOnboarding.isPending || submitVerification.isPending;
+    completeOnboarding.isPending ||
+    submitVerification.isPending ||
+    saveEmployerSetup.isPending;
+
+  const orgContinueDisabled = isPending || !orgState || isUnionized === null;
 
   return (
     <div className="gett-onboarding">
@@ -129,8 +197,9 @@ export function OnboardingFlow({
 
       <main className="gett-onb-main">
         <div className="gett-onb-card">
-          {!verifyOnly && <p className="gett-onb-step">Step {step} of 2</p>}
+          {!verifyOnly && <p className="gett-onb-step">Step {step} of {totalSteps}</p>}
 
+          {/* ── Step 1: Persona selection ── */}
           {step === 1 && !verifyOnly && (
             <>
               <h1 className="gett-onb-title">I am&hellip;</h1>
@@ -156,6 +225,7 @@ export function OnboardingFlow({
             </>
           )}
 
+          {/* ── Step 2: Verification ── */}
           {step === 2 && persona && config && (
             <>
               {!verifyOnly && (
@@ -206,7 +276,7 @@ export function OnboardingFlow({
                   disabled={isPending}
                   onClick={handleVerify}
                 >
-                  {isPending ? "Setting up…" : "Verify"}
+                  {isPending ? "Setting up…" : persona === "employer" ? "Continue →" : "Verify"}
                 </button>
                 {!verifyOnly && (
                   <button
@@ -218,6 +288,133 @@ export function OnboardingFlow({
                     Skip for now
                   </button>
                 )}
+              </div>
+            </>
+          )}
+
+          {/* ── Step 3: Employer org details ── */}
+          {step === 3 && persona === "employer" && (
+            <>
+              <button
+                type="button"
+                className="gett-onb-back"
+                onClick={() => setStep(2)}
+              >
+                &larr; Back
+              </button>
+              <h1 className="gett-onb-title">Organization details</h1>
+              <p className="gett-onb-desc">
+                A few more details to tailor your compliance workspace.
+              </p>
+
+              <div className="gett-onb-fields">
+                {/* State */}
+                <label className="gett-onb-field">
+                  <span>State</span>
+                  <select
+                    value={orgState}
+                    onChange={(e) => setOrgState(e.target.value)}
+                    className="gett-onb-select"
+                  >
+                    <option value="">Select your state…</option>
+                    {US_STATES.map(({ code, name }) => (
+                      <option key={code} value={code}>{name}</option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* Union status */}
+                <div className="gett-onb-field">
+                  <span>Is this division unionized?</span>
+                  <div className="gett-onb-toggle-row">
+                    <button
+                      type="button"
+                      onClick={() => setIsUnionized(true)}
+                      className={`gett-onb-toggle ${isUnionized === true ? "gett-onb-toggle--active" : ""}`}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsUnionized(false)}
+                      className={`gett-onb-toggle ${isUnionized === false ? "gett-onb-toggle--active" : ""}`}
+                    >
+                      No
+                    </button>
+                  </div>
+                </div>
+
+                {/* Union name (conditional) */}
+                {isUnionized === true && (
+                  <label className="gett-onb-field">
+                    <span>Which union? <em className="gett-onb-optional">(optional)</em></span>
+                    <input
+                      type="text"
+                      placeholder="e.g. SEIU, Teamsters, UAW"
+                      value={unionName}
+                      onChange={(e) => setUnionName(e.target.value)}
+                    />
+                  </label>
+                )}
+
+                {/* Handbook upload */}
+                <div className="gett-onb-field">
+                  <span>Employee handbook <em className="gett-onb-optional">(optional)</em></span>
+                  {handbookFile ? (
+                    <div className="gett-onb-file-preview">
+                      <File size={16} weight="regular" />
+                      <span className="gett-onb-file-name">{handbookFile.name}</span>
+                      <button
+                        type="button"
+                        className="gett-onb-file-remove"
+                        onClick={() => {
+                          setHandbookFile(null);
+                          if (handbookRef.current) handbookRef.current.value = "";
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="gett-onb-upload-btn"
+                      onClick={() => handbookRef.current?.click()}
+                    >
+                      <UploadSimple size={15} weight="regular" />
+                      Upload PDF
+                    </button>
+                  )}
+                  <input
+                    ref={handbookRef}
+                    type="file"
+                    accept="application/pdf"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setHandbookFile(f);
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="gett-onb-actions">
+                <button
+                  type="button"
+                  className="gett-onb-continue"
+                  disabled={orgContinueDisabled}
+                  onClick={handleOrgSubmit}
+                >
+                  {isPending ? "Saving…" : "Finish setup"}
+                </button>
+                <button
+                  type="button"
+                  className="gett-onb-skip"
+                  disabled={isPending}
+                  onClick={handleOrgSkip}
+                >
+                  Skip for now
+                </button>
               </div>
             </>
           )}
@@ -373,15 +570,96 @@ export function OnboardingFlow({
           font-size: 0.8125rem;
           font-weight: 500;
         }
-        .gett-onb-field input {
+        .gett-onb-field input,
+        .gett-onb-select {
           padding: 0.75rem 1rem;
           border-radius: 10px;
           border: 1.5px solid var(--blue-border);
           background: var(--blue-soft);
           font-size: 0.875rem;
           outline: none;
+          width: 100%;
+          appearance: none;
+          -webkit-appearance: none;
+          cursor: pointer;
+          color: var(--ink);
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239099C8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 0.875rem center;
+          padding-right: 2.25rem;
         }
-        .gett-onb-field input:focus { border-color: var(--blue); }
+        .gett-onb-field input:focus,
+        .gett-onb-select:focus { border-color: var(--blue); }
+        .gett-onb-optional {
+          font-style: normal;
+          font-weight: 400;
+          color: var(--ink-faint);
+        }
+        .gett-onb-toggle-row {
+          display: flex;
+          gap: 0.5rem;
+        }
+        .gett-onb-toggle {
+          flex: 1;
+          padding: 0.625rem 1rem;
+          border-radius: 10px;
+          border: 1.5px solid var(--blue-border);
+          background: var(--blue-soft);
+          color: var(--ink-muted);
+          font-size: 0.875rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: border-color 0.12s, background 0.12s, color 0.12s;
+        }
+        .gett-onb-toggle--active {
+          border-color: var(--blue);
+          background: var(--blue);
+          color: #fff;
+        }
+        .gett-onb-upload-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1rem;
+          border-radius: 10px;
+          border: 1.5px dashed var(--blue-border);
+          background: var(--blue-soft);
+          color: var(--blue);
+          font-size: 0.875rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: border-color 0.12s;
+        }
+        .gett-onb-upload-btn:hover { border-color: var(--blue); }
+        .gett-onb-file-preview {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1rem;
+          border-radius: 10px;
+          border: 1.5px solid var(--blue-border);
+          background: var(--blue-soft);
+          font-size: 0.875rem;
+          color: var(--ink);
+        }
+        .gett-onb-file-name {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .gett-onb-file-remove {
+          border: none;
+          background: none;
+          color: var(--ink-faint);
+          font-size: 1rem;
+          cursor: pointer;
+          line-height: 1;
+          padding: 0 0.125rem;
+          flex-shrink: 0;
+        }
+        .gett-onb-file-remove:hover { color: var(--ink); }
         .gett-onb-actions {
           display: flex;
           flex-direction: column;
@@ -398,7 +676,7 @@ export function OnboardingFlow({
           font-weight: 600;
           cursor: pointer;
         }
-        .gett-onb-continue:disabled { opacity: 0.6; }
+        .gett-onb-continue:disabled { opacity: 0.6; cursor: not-allowed; }
         .gett-onb-skip {
           width: 100%;
           padding: 0.875rem;
