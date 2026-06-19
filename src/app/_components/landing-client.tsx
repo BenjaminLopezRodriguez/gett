@@ -23,10 +23,13 @@ import {
   Stethoscope,
   ArrowSquareUp,
   BellRinging,
+  VideoCamera,
+  LockKey,
+  Storefront,
   type IconProps,
 } from "@phosphor-icons/react";
 
-type Seg = "employees" | "employers" | "lawgroups" | "insurers" | "clinicians";
+type Seg = "employees" | "employers" | "lawgroups" | "insurers" | "clinicians" | "therapists";
 type AnyIcon = React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
 
 interface Card { Icon: AnyIcon; title: string; sub: string; }
@@ -157,6 +160,29 @@ const CONTENT: Record<Seg, SegContent> = {
       { Icon: ArrowSquareUp, title: "No portal required", sub: "Upload securely from any device via text link." },
     ],
   },
+  therapists: {
+    navLabel: "for therapists",
+    headline: "Practice more,",
+    headlineBlue: "admin less.",
+    tagline: "Your platform for private practice.",
+    description:
+      "gett handles intake paperwork and secure document exchange today — and is building toward encrypted telehealth sessions and a therapist marketplace so clients can find and book you directly.",
+    placeholder: "e.g. How do I handle intake forms for new telehealth clients?",
+    visual: {
+      label: "Session #221 · Telehealth",
+      status: "Coming soon",
+      lines: [
+        "Intake forms collected securely",
+        "Encrypted video session — in progress",
+        "Session notes · HIPAA-compliant storage",
+      ],
+    },
+    cards: [
+      { Icon: LockKey, title: "Encrypted sessions", sub: "End-to-end secure video — coming soon." },
+      { Icon: Storefront, title: "Therapist marketplace", sub: "Let clients discover and book you directly." },
+      { Icon: VideoCamera, title: "Telehealth-ready intake", sub: "Collect forms and consent before the first session." },
+    ],
+  },
 };
 
 const DIALOG_OPTIONS: { seg: Seg; label: string; desc: string; Icon: AnyIcon }[] = [
@@ -164,7 +190,8 @@ const DIALOG_OPTIONS: { seg: Seg; label: string; desc: string; Icon: AnyIcon }[]
   { seg: "employers",  label: "I'm an employer / HR",   desc: "Improve compliance and reduce admin overhead",  Icon: Buildings   },
   { seg: "lawgroups",  label: "I'm with a law group",   desc: "Grow my disability or workers' comp practice",  Icon: Scales      },
   { seg: "insurers",   label: "I'm an insurer",         desc: "Streamline claims and reduce friction",         Icon: Shield      },
-  { seg: "clinicians", label: "I'm a clinician / HCP",  desc: "Submit forms and documentation securely",       Icon: Stethoscope },
+  { seg: "clinicians", label: "I'm a clinician / HCP",        desc: "Submit forms and documentation securely",         Icon: Stethoscope },
+  { seg: "therapists", label: "I'm a therapist / telehealth", desc: "Run your practice on a secure, modern platform",  Icon: VideoCamera  },
 ];
 
 type AuthState =
