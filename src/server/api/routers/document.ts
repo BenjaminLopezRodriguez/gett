@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { requireCaseMember } from "@/server/auth/case-access";
+import { assertPhiProcessingAllowed } from "@/server/lib/phi-guard";
 import { uploadDocument } from "@/server/pdf/upload";
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
@@ -20,6 +21,7 @@ export const documentRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       await requireCaseMember(ctx.db, ctx.user.id, input.caseId, "member");
+      assertPhiProcessingAllowed();
 
       const buffer = Buffer.from(input.contentBase64, "base64");
       if (buffer.byteLength > MAX_PDF_BYTES) {

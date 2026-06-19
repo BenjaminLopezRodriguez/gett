@@ -4,7 +4,7 @@ export default withAuth(
   async function middleware() {},
   {
     isReturnToCurrentPage: true,
-    publicPaths: ["/", "/api/auth"],
+    publicPaths: ["/", "/api/auth", "/start"],
   },
 );
 
