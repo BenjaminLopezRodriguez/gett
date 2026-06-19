@@ -41,12 +41,18 @@ export const env = createEnv({
     TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
     TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
     TWILIO_PHONE_NUMBER: z.string().min(1).optional(),
-    HANDOFF_TOKEN_TTL_MINUTES: z.coerce.number().default(20),
+    HANDOFF_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(20),
     SITE_URL: z.string().url().default("https://gett.md"),
 
     // Feature flags
-    ALLOW_PHI_PROCESSING: z.coerce.boolean().default(false),
-    ALLOW_AI_PROCESSING: z.coerce.boolean().default(false),
+    ALLOW_PHI_PROCESSING: z
+      .string()
+      .transform((v) => v === "true" || v === "1")
+      .default("false"),
+    ALLOW_AI_PROCESSING: z
+      .string()
+      .transform((v) => v === "true" || v === "1")
+      .default("false"),
   },
 
   client: {},
