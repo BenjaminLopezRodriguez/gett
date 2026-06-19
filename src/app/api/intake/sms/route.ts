@@ -52,21 +52,16 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  try {
-    const { raw, expiresAt } = await createHandoffToken({
-      channel: "sms",
-      intent: "upload",
-      phoneE164: from,
-    });
+  const { raw } = await createHandoffToken({
+    channel: "sms",
+    intent: "upload",
+    phoneE164: from,
+  });
 
-    const link = `${env.SITE_URL}/start?t=${raw}`;
-    const expiryMin = Math.round(env.HANDOFF_TOKEN_TTL_MINUTES);
+  const link = `${env.SITE_URL}/start?t=${raw}`;
+  const expiryMin = Math.round(env.HANDOFF_TOKEN_TTL_MINUTES);
 
-    return twiml(
-      `For your privacy, upload securely (expires ${expiryMin} min): ${link}`,
-    );
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return new Response(`Error: ${msg}`, { status: 500 });
-  }
+  return twiml(
+    `For your privacy, upload securely (expires ${expiryMin} min): ${link}`,
+  );
 }
