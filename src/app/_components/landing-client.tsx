@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
 import {
   CaretDown,
@@ -139,7 +140,16 @@ const DIALOG_OPTIONS: { seg: Seg; label: string; desc: string; Icon: AnyIcon }[]
   { seg: "insurers",   label: "I'm an insurer",       desc: "Streamline claims and reduce friction",         Icon: Shield    },
 ];
 
-export function LandingClient() {
+type AuthState =
+  | { isLoggedIn: false; isOnboarded: false; dashboardPath: null }
+  | {
+      isLoggedIn: true;
+      isOnboarded: boolean;
+      dashboardPath: string | null;
+    };
+
+export function LandingClient({ authState }: { authState: AuthState }) {
+  const router = useRouter();
   const [seg, setSeg] = useState<Seg>("employees");
   const [dialogOpen, setDialogOpen] = useState(false);
   const c = CONTENT[seg];
@@ -147,6 +157,19 @@ export function LandingClient() {
   function choose(s: Seg) {
     setSeg(s);
     setDialogOpen(false);
+  }
+
+  function handleGetStarted() {
+    if (!authState.isLoggedIn) {
+      window.location.href =
+        "/api/auth/login?post_login_redirect_url=/onboarding";
+      return;
+    }
+    if (!authState.isOnboarded) {
+      router.push("/onboarding");
+      return;
+    }
+    router.push(authState.dashboardPath ?? "/dashboard");
   }
 
   return (
@@ -203,6 +226,10 @@ export function LandingClient() {
               </Dialog.Portal>
             </Dialog.Root>
           </div>
+
+          <button type="button" onClick={handleGetStarted} className="gett-nav-cta">
+            Get started
+          </button>
         </div>
       </nav>
 
@@ -217,6 +244,10 @@ export function LandingClient() {
 
             <p className="gett-tagline">{c.tagline}</p>
             <p className="gett-description">{c.description}</p>
+
+            <button type="button" onClick={handleGetStarted} className="gett-hero-cta">
+              Get started
+            </button>
 
             <div className="gett-cards">
               {c.cards.map(({ Icon, title, sub }) => (
@@ -334,6 +365,43 @@ export function LandingClient() {
         .gett-nav-seg:hover {
           color: #fff;
           background: rgba(255, 255, 255, 0.15);
+        }
+        .gett-nav-cta {
+          padding: 0.5rem 1.125rem;
+          border: none;
+          border-radius: 999px;
+          background: #fff;
+          color: var(--blue);
+          font-family: var(--font-body);
+          font-size: 0.875rem;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+          transition: opacity 0.2s, transform 0.2s;
+          flex-shrink: 0;
+        }
+        .gett-nav-cta:hover {
+          opacity: 0.92;
+          transform: translateY(-1px);
+        }
+
+        .gett-hero-cta {
+          margin-top: 1.75rem;
+          padding: 0.875rem 1.75rem;
+          border: none;
+          border-radius: 999px;
+          background: var(--blue);
+          color: #fff;
+          font-family: var(--font-body);
+          font-size: 0.9375rem;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+          transition: opacity 0.2s, transform 0.2s;
+        }
+        .gett-hero-cta:hover {
+          opacity: 0.9;
+          transform: translateY(-1px);
         }
 
         .gett-headline {
