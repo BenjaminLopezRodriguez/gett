@@ -202,10 +202,16 @@ type AuthState =
       dashboardPath: string | null;
     };
 
+const WAITLIST_SEGS: Seg[] = ["clinicians", "therapists"];
+const isWaitlistSeg = (s: Seg) => WAITLIST_SEGS.includes(s);
+
 export function LandingClient({ authState }: { authState: AuthState }) {
   const router = useRouter();
   const [seg, setSeg] = useState<Seg>("employees");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [waitlistStatus, setWaitlistStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const c = CONTENT[seg];
 
   function choose(s: Seg) {
@@ -213,7 +219,32 @@ export function LandingClient({ authState }: { authState: AuthState }) {
     setDialogOpen(false);
   }
 
+  function openWaitlist() {
+    setWaitlistEmail("");
+    setWaitlistStatus("idle");
+    setWaitlistOpen(true);
+  }
+
+  async function submitWaitlist(e: React.FormEvent) {
+    e.preventDefault();
+    setWaitlistStatus("loading");
+    try {
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: waitlistEmail, segment: seg }),
+      });
+      setWaitlistStatus(res.ok ? "done" : "error");
+    } catch {
+      setWaitlistStatus("error");
+    }
+  }
+
   function handleGetStarted() {
+    if (isWaitlistSeg(seg)) {
+      openWaitlist();
+      return;
+    }
     if (!authState.isLoggedIn) {
       window.location.href =
         "/api/auth/login?post_login_redirect_url=/onboarding";
@@ -225,6 +256,8 @@ export function LandingClient({ authState }: { authState: AuthState }) {
     }
     router.push(authState.dashboardPath ?? "/dashboard");
   }
+
+  const ctaLabel = isWaitlistSeg(seg) ? "Join the waitlist" : "Get started";
 
   return (
     <div dir="ltr" className="gett-page">
@@ -282,10 +315,56 @@ export function LandingClient({ authState }: { authState: AuthState }) {
           </div>
 
           <button type="button" onClick={handleGetStarted} className="gett-nav-cta">
-            Get started
+            {ctaLabel}
           </button>
         </div>
       </nav>
+
+      <Dialog.Root open={waitlistOpen} onOpenChange={(o) => { if (!o) setWaitlistStatus("idle"); setWaitlistOpen(o); }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="gett-overlay" />
+          <Dialog.Content className="gett-dialog gett-waitlist-dialog" aria-describedby={undefined}>
+            <div className="flex items-center justify-between mb-6">
+              <Dialog.Title className="gett-dialog-title">
+                {waitlistStatus === "done" ? "You're on the list" : "Join the waitlist"}
+              </Dialog.Title>
+              <Dialog.Close asChild>
+                <button className="gett-close-btn"><X size={17} weight="bold" /></button>
+              </Dialog.Close>
+            </div>
+
+            {waitlistStatus === "done" ? (
+              <div className="gett-waitlist-done">
+                <p className="gett-waitlist-done-msg">
+                  We&apos;ll email you as soon as {seg === "therapists" ? "the telehealth platform" : "the clinician portal"} is ready. Thanks for your interest.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={submitWaitlist} className="gett-waitlist-form">
+                <p className="gett-waitlist-desc">
+                  {seg === "therapists"
+                    ? "We're building encrypted telehealth sessions and a marketplace. Leave your email and we'll reach out when it's ready."
+                    : "We're building a dedicated portal for clinicians and HCPs. Leave your email and we'll notify you when it launches."}
+                </p>
+                <input
+                  type="email"
+                  required
+                  value={waitlistEmail}
+                  onChange={(e) => setWaitlistEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="gett-waitlist-input"
+                />
+                {waitlistStatus === "error" && (
+                  <p className="gett-waitlist-error">Something went wrong — please try again.</p>
+                )}
+                <button type="submit" disabled={waitlistStatus === "loading"} className="gett-waitlist-submit">
+                  {waitlistStatus === "loading" ? "Saving…" : "Notify me"}
+                </button>
+              </form>
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <main key={seg} className="gett-hero max-w-6xl mx-auto px-6">
         <div className="gett-hero-grid">
@@ -300,7 +379,7 @@ export function LandingClient({ authState }: { authState: AuthState }) {
             <p className="gett-description">{c.description}</p>
 
             <button type="button" onClick={handleGetStarted} className="gett-hero-cta">
-              Get started
+              {ctaLabel}
             </button>
 
             <div className="gett-cards">
@@ -886,6 +965,54 @@ export function LandingClient({ authState }: { authState: AuthState }) {
             margin: 0 auto 20px;
           }
           .gett-options-grid { grid-template-columns: 1fr; }
+        }
+
+        .gett-waitlist-dialog { max-width: 420px; }
+
+        .gett-waitlist-desc {
+          font-size: 0.9rem;
+          color: var(--ink-faint);
+          line-height: 1.6;
+          margin: 0 0 20px;
+        }
+        .gett-waitlist-form { display: flex; flex-direction: column; gap: 12px; }
+        .gett-waitlist-input {
+          width: 100%;
+          padding: 12px 16px;
+          border: 1.5px solid #E0E4FF;
+          border-radius: 12px;
+          font-size: 0.9375rem;
+          outline: none;
+          transition: border-color 0.15s;
+          color: var(--ink);
+          background: #fff;
+        }
+        .gett-waitlist-input:focus { border-color: #3040F5; }
+        .gett-waitlist-submit {
+          padding: 13px 20px;
+          border-radius: 12px;
+          background: #3040F5;
+          color: #fff;
+          font-size: 0.9375rem;
+          font-weight: 600;
+          border: none;
+          cursor: pointer;
+          transition: background 0.15s, opacity 0.15s;
+          letter-spacing: -0.012em;
+        }
+        .gett-waitlist-submit:hover:not(:disabled) { background: #1e2fd4; }
+        .gett-waitlist-submit:disabled { opacity: 0.6; cursor: default; }
+        .gett-waitlist-error {
+          font-size: 0.8125rem;
+          color: #d93025;
+          margin: 0;
+        }
+        .gett-waitlist-done { padding: 8px 0 12px; }
+        .gett-waitlist-done-msg {
+          font-size: 0.9375rem;
+          color: var(--ink-faint);
+          line-height: 1.6;
+          margin: 0;
         }
       `}</style>
     </div>

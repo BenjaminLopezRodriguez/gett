@@ -294,6 +294,17 @@ export const caseMessagesRelations = relations(caseMessages, ({ one }) => ({
   }),
 }));
 
+export const waitlistEntries = createTable(
+  "waitlist_entry",
+  (d) => ({
+    id: d.uuid().primaryKey().defaultRandom(),
+    email: d.varchar({ length: 320 }).notNull(),
+    segment: d.varchar({ length: 64 }).notNull(),
+    createdAt: d.timestamp({ withTimezone: true }).defaultNow().notNull(),
+  }),
+  (t) => [uniqueIndex("waitlist_email_segment_idx").on(t.email, t.segment)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Case = typeof cases.$inferSelect;
 export type CaseMember = typeof caseMembers.$inferSelect;
@@ -305,3 +316,4 @@ export type VerificationStatus =
 export type IntakeHandoffToken = typeof intakeHandoffTokens.$inferSelect;
 export type CaseContact = typeof caseContacts.$inferSelect;
 export type CaseMessage = typeof caseMessages.$inferSelect;
+export type WaitlistEntry = typeof waitlistEntries.$inferSelect;
